@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crypto Analyser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">CA</div>
+    <div class="brand-text">
+      <h1>Crypto Analyser</h1>
+      <p>Binance research desk — batch backtesting &amp; live setup scoring</p>
+    </div>
+  </div>
+
+  <div class="ticker-wrap" id="tickerWrap" aria-hidden="true">
+    <div class="ticker-track" id="tickerTrack">
+      <span class="ticker-empty">Run a live scan to populate the tape →</span>
+    </div>
+  </div>
+
+  <div class="topbar-controls">
+    <div class="gauge" id="usageGauge" title="API weight used this minute" style="--pct:0">
+      <span class="gauge-value" id="usageGaugeValue">—</span>
+    </div>
+    <button class="icon-btn" id="themeToggle" title="Switch theme">
+      <svg id="themeIconMoon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="usage-detail" id="usageDetail">API weight: not yet measured</div>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="batch">Batch Backtest</button>
+  <button class="tab" data-tab="live">Live Scan</button>
+</nav>
+
+<main>
+  <!-- ===================== BATCH TAB ===================== -->
+  <section class="tab-panel active" id="tab-batch">
+    <div class="card controls-card">
+      <div class="field">
+        <label>Symbols <span class="hint" data-tip="Pick one or more coins to test. Search by ticker or name.">?</span></label>
+        <div class="symbol-picker" id="batchPicker">
+          <button class="picker-btn" id="batchPickerBtn" type="button">
+            <span id="batchPickerLabel">Select symbols…</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="picker-popup" id="batchPickerPopup">
+            <input type="text" class="picker-search" id="batchPickerSearch" placeholder="Search e.g. sol, solana…">
+            <div class="picker-actions">
+              <button type="button" data-action="select-all">Select all shown</button>
+              <button type="button" data-action="clear-all">Clear all</button>
+              <button type="button" data-action="refresh" class="refresh-btn">⟳ Refresh list</button>
+            </div>
+            <div class="picker-list" id="batchPickerList"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Intervals <span class="hint" data-tip="Candle timeframe(s) to test. Shorter = more noise &amp; more trades.">?</span></label>
+        <div class="chip-group" id="intervalChips">
+          <label class="chip"><input type="checkbox" value="15m" checked><span>15m</span></label>
+          <label class="chip"><input type="checkbox" value="1h" checked><span>1h</span></label>
+          <label class="chip"><input type="checkbox" value="4h"><span>4h</span></label>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field narrow">
+          <label>Days <span class="hint" data-tip="How many days of history to backtest over.">?</span></label>
+          <input type="number" id="daysInput" value="60" min="1">
+        </div>
+        <div class="field narrow">
+          <label>Entry threshold % <span class="hint" data-tip="Minimum bull/bear signal agreement needed to open a simulated trade.">?</span></label>
+          <input type="number" id="thresholdInput" value="75" min="50" max="100">
+        </div>
+        <div class="field narrow">
+          <label>Stop (x ATR) <span class="hint" data-tip="Stop-loss distance as a multiple of ATR (volatility).">?</span></label>
+          <input type="number" id="stopInput" value="1.5" step="0.1" min="0.1">
+        </div>
+        <div class="field narrow">
+          <label>Target (x ATR) <span class="hint" data-tip="Take-profit distance as a multiple of ATR.">?</span></label>
+          <input type="number" id="targetInput" value="2.0" step="0.1" min="0.1">
+        </div>
+      </div>
+
+      <div class="field-row actions-row">
+        <button class="btn btn-primary" id="runBatchBtn">Run batch backtest</button>
+        <button class="btn btn-ghost" id="exportBatchBtn">Export CSV</button>
+        <span class="status-text" id="batchStatus"></span>
+      </div>
+    </div>
+
+    <p class="summary-line" id="batchSummary"></p>
+
+    <div class="card table-card">
+      <table class="results-table" id="batchTable">
+        <thead>
+          <tr>
+            <th data-key="symbol" data-tip="The trading pair backtested.">Symbol</th>
+            <th data-key="interval" data-tip="Candle timeframe used for signals.">Interval</th>
+            <th data-key="trades" data-tip="How many simulated trades this setup produced.">Trades</th>
+            <th data-key="win_rate" data-tip="% of trades that closed at a profit.">Win %</th>
+            <th data-key="avg_win" data-tip="Average % return of winning trades.">Avg Win %</th>
+            <th data-key="avg_loss" data-tip="Average % return of losing trades.">Avg Loss %</th>
+            <th data-key="expectancy" data-tip="Average return per trade, wins and losses combined. Best single number to judge a setup by.">Expectancy %/trade</th>
+            <th data-key="total_pnl" data-tip="Sum of all trade returns. No compounding, fees excluded.">Sum Return %</th>
+          </tr>
+        </thead>
+        <tbody id="batchTableBody"></tbody>
+      </table>
+      <p class="table-hint">Green rows = positive expectancy · red = negative · click a column header to sort · click a row to chart its equity curve</p>
+    </div>
+
+    <div class="card chart-card">
+      <div class="chart-toolbar">
+        <label class="radio-chip"><input type="radio" name="chartMode" value="equity" checked><span>Equity curve (selected row)</span></label>
+        <label class="radio-chip"><input type="radio" name="chartMode" value="overview"><span>Win rate overview (all results)</span></label>
+      </div>
+      <canvas id="batchChart" height="110"></canvas>
+      <p class="chart-placeholder" id="batchChartPlaceholder">Run a backtest, then select a row to view its equity curve.</p>
+    </div>
+  </section>
+
+  <!-- ===================== LIVE TAB ===================== -->
+  <section class="tab-panel" id="tab-live">
+    <div class="card controls-card">
+      <div class="field">
+        <label>Symbols <span class="hint" data-tip="Pick coins to scan for their current signal snapshot.">?</span></label>
+        <div class="symbol-picker" id="livePicker">
+          <button class="picker-btn" id="livePickerBtn" type="button">
+            <span id="livePickerLabel">Select symbols…</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="picker-popup" id="livePickerPopup">
+            <input type="text" class="picker-search" id="livePickerSearch" placeholder="Search e.g. sol, solana…">
+            <div class="picker-actions">
+              <button type="button" data-action="select-all">Select all shown</button>
+              <button type="button" data-action="clear-all">Clear all</button>
+              <button type="button" data-action="refresh" class="refresh-btn">⟳ Refresh list</button>
+            </div>
+            <div class="picker-list" id="livePickerList"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field narrow">
+        <label>Interval <span class="hint" data-tip="Candle timeframe for the live scan.">?</span></label>
+        <select id="liveIntervalSelect">
+          <option value="1m">1m</option>
+          <option value="5m">5m</option>
+          <option value="15m" selected>15m</option>
+          <option value="1h">1h</option>
+          <option value="4h">4h</option>
+          <option value="1d">1d</option>
+        </select>
+      </div>
+
+      <div class="field-row actions-row">
+        <button class="btn btn-primary" id="runLiveBtn">Scan now</button>
+        <button class="btn btn-ghost" id="exportLiveBtn">Export CSV</button>
+        <span class="status-text" id="liveStatus"></span>
+      </div>
+    </div>
+
+    <div class="card table-card">
+      <table class="results-table" id="liveTable">
+        <thead>
+          <tr>
+            <th data-tip="The trading pair.">Symbol</th>
+            <th data-tip="Last traded price.">Price</th>
+            <th data-tip="24-hour price change percentage.">24h %</th>
+            <th data-tip="Rule-based bull/bear score. Not a prediction — a snapshot of which textbook signals currently agree.">Lean</th>
+            <th data-tip="Average True Range: a volatility measure used to size stops/targets.">ATR</th>
+          </tr>
+        </thead>
+        <tbody id="liveTableBody"></tbody>
+      </table>
+      <p class="table-hint">Green = bullish lean · red = bearish lean</p>
+    </div>
+
+    <div class="card chart-card">
+      <canvas id="liveChart" height="110"></canvas>
+      <p class="chart-placeholder" id="liveChartPlaceholder">Run a scan to see the bull/bear lean by symbol.</p>
+    </div>
+  </section>
+</main>
+
+<div class="tooltip" id="globalTooltip"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
