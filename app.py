@@ -378,6 +378,7 @@ def api_live_stream():
 
 
 if __name__ == "__main__":
-    port = 5055
-    print(f"\nCrypto Analyser running — open http://127.0.0.1:{port} in your browser\n")
-    app.run(host="127.0.0.1", port=port, debug=False, threaded=True)
+    port = int(os.environ.get("PORT", "5055"))
+    host = os.environ.get("HOST", "0.0.0.0")
+    print(f"\nCrypto Analyser running — open http://{host}:{port} in your browser\n")
+    app.run(host=host, port=port, debug=False, threaded=True)

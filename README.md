@@ -27,6 +27,17 @@ http://127.0.0.1:5055
 Leave the terminal window open while you use the app; closing it stops the
 local server.
 
+## Deploying online
+
+This app is ready to be hosted on platforms that support Python web apps, such as Render or Railway.
+
+Typical settings:
+
+- Build command: `pip install -r requirements.txt`
+- Start command: `python app.py`
+
+The app listens on the cloud-provided `PORT` environment variable automatically.
+
 ## Notes
 
 - All Binance API calls happen from the Python backend, not your browser,
